@@ -3,34 +3,44 @@
 // using this OLED display: I2C OLED Display Module 0.91
 
 #include <Wire.h>
+// for the gyro
 #include <Adafruit_MPU6050.h>
-#include <Adafruit_SSD1306.h>
 #include <Adafruit_Sensor.h>
+// for the display
+#include <SSD1306.h>
+#include <OLEDDisplayUi.h>
+
 #include "myButton.h"
 
 Adafruit_MPU6050 mpu;
-Adafruit_SSD1306 display = Adafruit_SSD1306(128, 64, &Wire);
+SSD1306Wire display(0x3C, D2, D1);
+OLEDDisplayUi ui ( &display );
 
 myPullupButton stopButton(D3, LOW);
 bool displayActive = true;
 
+float x_avg = 0;
+float y_avg = 0;
+float z_avg = 0;
+int readingsCount = 0;
+int zeros = 0; // number of times the averages went to 0
 
 void init_display() {
-    Wire.begin();
-    Wire.beginTransmission(0x3C); // OLED I2C address
-    Wire.write(0x00); // Command mode
-    Wire.write(0xAE); // Display OFF
-    Wire.endTransmission();
-    delay(100); // Give it time to settle
-    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  
-    display.setFont(ArialMT_Plain_24);
+    display.init();
+    display.clear();
+    display.flipScreenVertically(); // yellow line goes on top
+    display.setFont(ArialMT_Plain_16); // fonts are 10/16/24
+    display.setTextAlignment(TEXT_ALIGN_LEFT);
+    display.display();
+    delay(200);
+    Serial.println("Display set up");
 }
 
-bool reset_display() {
-    display.clearDisplay();
+void displayIdle() {
+    display.clear();
+    display.setFont(ArialMT_Plain_24);
+    display.drawString(5,5, "IDLE");
     display.display();
-    display.ssd1306_command(SSD1306_DISPLAYOFF);  // Turn off OLED
-    return false;
 }
 
 void setup() {
@@ -41,12 +51,6 @@ void setup() {
     digitalWrite(D6, LOW); // ensure the transistor is on
 
     init_display();
-    display.display();
-    delay(500); 
-    display.setTextSize(2);
-    display.setTextColor(WHITE);
-    display.setRotation(0);
-    Serial.println("Display set up");
 
     if (!mpu.begin()) {
     Serial.println("Sensor init failed");
@@ -54,38 +58,47 @@ void setup() {
         yield();
     }
     Serial.println("Found a MPU-6050 sensor");
+    reset_avgs();
+}
+
+void reset_avgs() {
+    if ((x_avg < 0.002) && (y_avg < 0.002) && (z_avg < 0.002)) {
+        zeros++;
+    } else {
+        zeros = 0;
+    }
+
+    x_avg = 0;
+    y_avg = 0;
+    z_avg = 0;
+    readingsCount = 0;    
 }
 
 void displayData() {
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.print("Acc:");
-    display.print(a.acceleration.x, 1);
-    display.print(", ");
-    display.print(a.acceleration.y, 1);
-    display.print(", ");
-    display.print(a.acceleration.z, 1);
-    display.println("");
-    display.print("Gyro:");
-    display.print(g.gyro.x, 1);
-    display.print(", ");
-    display.print(g.gyro.y, 1);
-    display.print(", ");
-    display.print(g.gyro.z, 1);
-    display.println("");
-
+    readingsCount++;
+    x_avg = (x_avg + abs(g.gyro.x)) / readingsCount;
+    y_avg = (y_avg + abs(g.gyro.y)) / readingsCount;
+    z_avg = (z_avg + abs(g.gyro.z)) / readingsCount;
+    display.clear();
+    display.drawString(0, 0,  "X: " + String(x_avg, 3) + "   Zr: " + String(zeros));
+    display.drawString(0, 26, "Y: " + String(y_avg, 3) + "   Rd: " + String(readingsCount));
+    display.drawString(0, 51, "Z: " + String(z_avg, 3));
     display.display();
+    if (readingsCount == 70) reset_avgs();
 }
 
 void loop() {
     if (displayActive) {
         displayData();
+        if (zeros > 10) {
+            displayIdle();
+            displayActive = false;
+        }
     }
-    if (stopButton.isPressed() && displayActive) {
+    if (stopButton.isPressed()) {
         Serial.println("Stopping the display");
-        //displayActive = reset_display();
         digitalWrite(D6, HIGH); // turn off the transistor
     }
     delay(100);
