@@ -22,3 +22,10 @@ void connectToWiFi(int host_number = 0) {
     delay(500);
   }
 }
+
+String dispWiFiConfig() {
+  String mex = "IP: " + WiFi.localIP().toString();
+  Serial.println(mex);
+  return mex;
+
+}

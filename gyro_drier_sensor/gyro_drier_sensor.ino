@@ -1,11 +1,13 @@
 #include <Wire.h>
 #include <EMailSender.h>
 
-#include <Adafruit_MPU6050.h>
+#include <Adafruit_MPU6050.h>  // MPU-6050 is the name of the gyroscope
 #include <Adafruit_Sensor.h>
 
 #include <SSD1306.h>
 #include <OLEDDisplayUi.h>
+
+#include <ESP8266HTTPClient.h>
 
 #include "myButton.h"
 #include "my_wifi.h"
@@ -24,14 +26,14 @@ float max_x = 0, max_y = 0, max_z = 0;
 const float th_y = 0.01;
 const float th_z = 0.01;
 
-bool sendingEmail = false;
+bool sendingMessage = false; // unified semaphore
 
 void init_display() {
     delay(500);
     display.init();
     display.clear();
     display.flipScreenVertically();
-    display.setFont(ArialMT_Plain_24);
+    display.setFont(ArialMT_Plain_16);
     display.setTextAlignment(TEXT_ALIGN_LEFT);
     display.display();
     Serial.println("Display set up");
@@ -58,21 +60,42 @@ void setup() {
         while (1) yield();
     }
     Serial.println("Found a MPU-6050 sensor");
-    display.drawString(5, 5, "Wi-Fi connect");
+    display.drawString(2, 2, "Wi-Fi connect");
     display.display();
-    connectToWiFi(120);
+    connectToWiFi(125);
+    display.drawString(2,26,dispWiFiConfig());
+    display.display();
+    delay(5000);
 }
 
 void send_email_notif() {
-    if (sendingEmail) return;
-    sendingEmail = true;
+    Serial.println("Sending email");
     EMailSender::EMailMessage message;
-
     message.subject = "Gyro is now Idle";
     message.message = "Gyroscope has moved to IDLE!";
 
     EMailSender emailSend("loruk371@gmail.com", "tiudnygltapfymks");
     EMailSender::Response resp = emailSend.send("lorenzo.pedrotti@gmail.com", message);
+    /*Serial.print("Email send status: ");
+    Serial.println(resp.status);
+    Serial.print("Email send code: ");
+    Serial.println(resp.code);*/
+    Serial.print("Email send desc: ");
+    Serial.println(resp.desc);
+}
+
+void send_whatsapp_notif() {
+    const char* host = "api.callmebot.com";
+    String url = "/whatsapp.php?phone=447999399779&text=The+machine+has+stopped&apikey=2866066";
+
+    WiFiClientSecure client;
+    client.setInsecure();
+    if (!client.connect(host, 443)) {
+        Serial.println("Connect to CallMe Bot failure");
+        return;
+    }
+    Serial.println("Connect to CallMe Bot OK");
+    client.print(String("GET ") + url + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
 }
 
 
@@ -108,11 +131,15 @@ void displayData() {
 }
 
 void loop() {
-    if (displayActive) {
-        displayData();
-    } else {
-        displayIdle();
-        if (!sendingEmail) send_email_notif();
+    if (!sendingMessage) {
+        if (displayActive) {
+            displayData();
+        } else {
+            sendingMessage = true; // set semaphore
+            displayIdle();
+            send_email_notif();
+            send_whatsapp_notif();
+        }
     }
     if (stopButton.isPressed()) {
         Serial.println("Stopping the display");
