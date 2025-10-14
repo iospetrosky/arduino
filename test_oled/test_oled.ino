@@ -24,12 +24,23 @@ const uint8_t activeSymbol[] PROGMEM = {
     B00011000
 };
 
-static unsigned char cloud_bits[] = {
-   0x00, 0x00, 0x00, 0x88, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-   0x08, 0x40, 0x00, 0x08, 0x44, 0x00, 0x48, 0x44, 0x00, 0x48, 0x44, 0x00,
-   0x88, 0xf4, 0x00, 0x48, 0x04, 0x00, 0x08, 0x04, 0x00, 0x08, 0x04, 0x00,
-   0x08, 0x04, 0x02, 0xf8, 0x9f, 0x03, 0x48, 0x84, 0x00, 0x40, 0x84, 0x00,
-   0x40, 0xfc, 0x00, 0x40, 0x00, 0x00, 0x7c, 0x00, 0x00, 0x00, 0x00, 0x00 
+static const unsigned char PROGMEM cloud_bits[] = {
+B00000000, B00000000, 
+B00000000, B00000000, 
+B00000001, B11000000, 
+B00000011, B11100000, 
+B00000011, B11111000, 
+B00011111, B11111000, 
+B00111111, B11111100, 
+B01111111, B11111111, 
+B01111111, B11111111, 
+B01111111, B11111111, 
+B00011111, B11111110, 
+B00000000, B00000000, 
+B00010010, B01001000, 
+B00100100, B10010000, 
+B01001001, B00100000, 
+B00000000, B00000000
 };
 
 // the library is here
@@ -42,7 +53,7 @@ void drawActiveSymbol(int px, int py) {
 void drawImageDemo(int px, int py) {
   // see https://community.silabs.com/s/article/creating-monochrome-bitmap-files-for-lcd-glib-using-gimp?language=en_US
   // on how to create xbm files with GIMP
-  display.drawXbm(px, py, 20,20,cloud_bits);
+  display.drawXbm(px, py, 16,16,cloud_bits);
 }
 
 void demo_24() {
@@ -99,8 +110,9 @@ void setup() {
   display.clear();
   display.flipScreenVertically(); // yellow line goes on top
   display.setTextAlignment(TEXT_ALIGN_LEFT);
-  demo_24_lib2();
-  
+  //demo_24_lib2();
+  drawImageDemo(50,20);
+  display.display();
 }
 
 

@@ -25,7 +25,6 @@ bool displayActive = true;
 
 unsigned long idlePeriods = 0; 
 
-//float max_x = 0, max_y = 0;
 const float th_y = 0.01;
 const float th_z = 0.01;
 
@@ -108,7 +107,7 @@ void displayData() {
         abs(g.gyro.z) < th_z) {
         idlePeriods++;
         // If below threshold, check if we are already counting idle time
-        if (idlePeriods >= opMode[opModeIdx].maxIdlePeriod) {
+        if (idlePeriods >= modes[opModeIdx].maxIdlePeriod) {
             displayActive = false;
         }
     } else {
@@ -118,14 +117,21 @@ void displayData() {
 
     // Display current gyro readings
     display.clear();
-    display.setFont(ArialMT_Plain_16);
-    display.drawRect(1, 1, 80, 38);
-    display.drawString(3,  6, "Y: " + String(abs(g.gyro.y), 3) );
-    display.drawRect(0, 39, 80, 61);
-    display.drawString(3, 42, "Z: " + String(abs(g.gyro.z), 3) );
+    display.setFont(ArialMT_Plain_24);
+    display.drawRect(0,1,128,63); // the outer rectangle
+    display.drawLine(64,1,64,63); // a vertical line in the middle
+    // Normalize gyro.y and gyro.z to a value between 0 and 9
+    int normY = constrain((int)(abs(g.gyro.y) / th_y), 0, 9);
+    int normZ = constrain((int)(abs(g.gyro.z) / th_z), 0, 9);
 
-    display.drawRect(80, 1, 125, 38);
-    display.drawString(83, 3, "Id: " + String(idlePeriods));
+    display.drawString(2,  2, "Y: " + String(normY));
+    display.drawString(76, 2, "Z: " + String(normZ));
+    // Map idlePeriods to x position (from 10 to 118)
+    int minX = 10;
+    int maxX = 118;
+    int circleX = map(idlePeriods, 0, modes[opModeIdx].maxIdlePeriod, minX, maxX);
+    circleX = constrain(circleX, minX, maxX); // Ensure within bounds
+    display.fillCircle(circleX, 54, 4);
     display.display();
 }
 
@@ -150,7 +156,7 @@ void loop() {
         } else {
             sendingMessage = true; // set semaphore
             displayIdle();
-            send_whatsapp_notif("Gyro says the machine has stopped");
+            send_whatsapp_notif("Gyro says the " + modes[opModeIdx].description + " has stopped");
         }
     }
     if (stopButton.isPressed()) {
