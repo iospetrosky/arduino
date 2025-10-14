@@ -44,7 +44,7 @@ void init_display() {
 void displayIdle() {
     display.clear();
     display.setFont(ArialMT_Plain_24);
-    display.drawString(5, 5, "IDLE");
+    display.drawString(1, 1, "IDLE");
     display.display();
 }
 
@@ -95,7 +95,9 @@ void send_whatsapp_notif(String text) {
     Serial.println("Connect to CallMe Bot OK");
     client.print(String("GET ") + url + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
     // put on the display the icon of an envelope
-    display.drawString(5, 40, "Whatsapp");
+    //display.drawString(5, 40, "Whatsapp");
+    myImage whatsApp("WhatsApp", whatsapp_bits, 34, 31);
+    display.drawXbm(5, 30, whatsApp.imageWidth, whatsApp.imageHeight, whatsApp.imageBits);
     display.display();
 }
 
@@ -147,10 +149,6 @@ void switchToNextMode() {
 }
 
 void loop() {
-    if (modeButton.isPressed()) {
-        switchToNextMode();
-        delay(300); // Debounce delay
-    }
 
     if (!sendingMessage) {
         if (displayActive) {
@@ -161,8 +159,14 @@ void loop() {
             send_whatsapp_notif("Gyro says the " + modes[opModeIdx].description + " has stopped");
         }
     }
+
+    if (modeButton.isPressed()) {
+        switchToNextMode();
+        delay(300); // Debounce delay
+    }
+    
     if (stopButton.isPressed()) {
-        Serial.println("Stopping the display");
+        Serial.println("Stopping the display"); // it actually cuts the power
         digitalWrite(D6, HIGH); // turn off the transistor
     }
     delay(100);

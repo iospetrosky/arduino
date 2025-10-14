@@ -27,5 +27,5 @@ String dispWiFiConfig() {
   String mex = "IP: " + WiFi.localIP().toString();
   Serial.println(mex);
   // Return only the last 7 characters of mex
-  return mex.substring(mex.length() - 7);
+  return mex.substring(mex.length() - 4);
 }
