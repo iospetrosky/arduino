@@ -11,8 +11,8 @@
 #include "modes.h"
 
 opMode modes[] = {
-    opMode("Dryer", 250),
-    opMode("Washer", 500)
+    opMode("Dryer", 250, dryer_bits, 32, 42),
+    opMode("Washer", 500, washing_machine_bits, 32, 42)
 };
 int opModeIdx = 0; // Track current mode
 
@@ -119,13 +119,15 @@ void displayData() {
     display.clear();
     display.setFont(ArialMT_Plain_24);
     display.drawRect(0,1,128,63); // the outer rectangle
-    display.drawLine(64,1,64,63); // a vertical line in the middle
+    // display the right icon
+    display.drawXbm(48, 10,  modes[opModeIdx].imageWidth, modes[opModeIdx].imageHeight, modes[opModeIdx].imageBits);
+
     // Normalize gyro.y and gyro.z to a value between 0 and 9
     int normY = constrain((int)(abs(g.gyro.y) / th_y), 0, 9);
     int normZ = constrain((int)(abs(g.gyro.z) / th_z), 0, 9);
 
-    display.drawString(2,  2, "Y: " + String(normY));
-    display.drawString(76, 2, "Z: " + String(normZ));
+    display.drawString(2,  6, "Y: " + String(normY));
+    display.drawString(82, 6, "Z: " + String(normZ));
     // Map idlePeriods to x position (from 10 to 118)
     int minX = 10;
     int maxX = 118;
