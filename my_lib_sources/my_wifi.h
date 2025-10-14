@@ -1,6 +1,7 @@
 #include <ESP8266WiFi.h>
 
 const char *ssid = "lorenzo_work24";
+//const char *ssid = "sabrina_lorenzo";
 const char *password = "f3d3r1c0";
 
 void connectToWiFi(int host_number = 0) {

@@ -1,28 +1,31 @@
 #include <Wire.h>
-#include <EMailSender.h>
 
 #include <Adafruit_MPU6050.h>  // MPU-6050 is the name of the gyroscope
 #include <Adafruit_Sensor.h>
 
 #include <SSD1306.h>
-#include <OLEDDisplayUi.h>
-
 #include <ESP8266HTTPClient.h>
 
 #include "myButton.h"
 #include "my_wifi.h"
+#include "modes.h"
+
+opMode modes[] = {
+    opMode("Dryer", 250),
+    opMode("Washer", 500)
+};
+int opModeIdx = 0; // Track current mode
 
 Adafruit_MPU6050 mpu;
 SSD1306Wire display(0x3C, D2, D1);
-OLEDDisplayUi ui(&display);
 
-myPullupButton stopButton(D3, LOW);
+myPullupButton stopButton(D5, LOW);
+myPullupButton modeButton(D7, LOW);
 bool displayActive = true;
 
 unsigned long idlePeriods = 0; 
-const unsigned long maxIdlePeriods = 120;
 
-float max_x = 0, max_y = 0, max_z = 0;
+//float max_x = 0, max_y = 0;
 const float th_y = 0.01;
 const float th_z = 0.01;
 
@@ -33,7 +36,7 @@ void init_display() {
     display.init();
     display.clear();
     display.flipScreenVertically();
-    display.setFont(ArialMT_Plain_16);
+    display.setFont(ArialMT_Plain_24);
     display.setTextAlignment(TEXT_ALIGN_LEFT);
     display.display();
     Serial.println("Display set up");
@@ -48,7 +51,6 @@ void displayIdle() {
 
 void setup() {
     Serial.begin(115200);
-    Serial.println("\nMPU6050 OLED demo");
     pinMode(D6, OUTPUT);
     digitalWrite(D6, LOW); // ensure the transistor is on
 
@@ -60,34 +62,31 @@ void setup() {
         while (1) yield();
     }
     Serial.println("Found a MPU-6050 sensor");
-    display.drawString(2, 2, "Wi-Fi connect");
+    display.drawString(2, 2, "Wi-Fi conn");
     display.display();
-    connectToWiFi(125);
+    connectToWiFi();
     display.drawString(2,26,dispWiFiConfig());
     display.display();
     delay(5000);
 }
 
-void send_email_notif() {
-    Serial.println("Sending email");
-    EMailSender::EMailMessage message;
-    message.subject = "Gyro is now Idle";
-    message.message = "Gyroscope has moved to IDLE!";
+// void send_email_notif() {
+//     Serial.println("Sending email");
+//     EMailSender::EMailMessage message;
+//     message.subject = "Gyro is now Idle";
+//     message.message = "Gyroscope has moved to IDLE!";
 
-    EMailSender emailSend("loruk371@gmail.com", "tiudnygltapfymks");
-    EMailSender::Response resp = emailSend.send("lorenzo.pedrotti@gmail.com", message);
-    /*Serial.print("Email send status: ");
-    Serial.println(resp.status);
-    Serial.print("Email send code: ");
-    Serial.println(resp.code);*/
-    Serial.print("Email send desc: ");
-    Serial.println(resp.desc);
-}
+//     EMailSender emailSend("loruk371@gmail.com", "tiudnygltapfymks");
+//     EMailSender::Response resp = emailSend.send("lorenzo.pedrotti@gmail.com", message);
 
-void send_whatsapp_notif() {
+//     Serial.print("Email send desc: ");
+//     Serial.println(resp.desc);
+// }
+
+void send_whatsapp_notif(String text) {
     const char* host = "api.callmebot.com";
-    String url = "/whatsapp.php?phone=447999399779&text=The+machine+has+stopped&apikey=2866066";
-
+    text.replace(" ", "+");
+    String url = "/whatsapp.php?phone=447999399779&text=" + text + "&apikey=2866066";
     WiFiClientSecure client;
     client.setInsecure();
     if (!client.connect(host, 443)) {
@@ -96,20 +95,20 @@ void send_whatsapp_notif() {
     }
     Serial.println("Connect to CallMe Bot OK");
     client.print(String("GET ") + url + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
+    // put on the display the icon of an envelope
+    display.drawString(5, 40, "Whatsapp");
+    display.display();
 }
-
 
 void displayData() {
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
-
-
     // Check if the gyroscope readings are below the threshold
     if (abs(g.gyro.y) < th_y &&
         abs(g.gyro.z) < th_z) {
         idlePeriods++;
         // If below threshold, check if we are already counting idle time
-        if (idlePeriods >= maxIdlePeriods) {
+        if (idlePeriods >= opMode[opModeIdx].maxIdlePeriod) {
             displayActive = false;
         }
     } else {
@@ -130,15 +129,28 @@ void displayData() {
     display.display();
 }
 
+void switchToNextMode() {
+    opModeIdx++;
+    if (opModeIdx >= (sizeof(modes) / sizeof(modes[0]))) {
+        opModeIdx = 0;
+    }
+    Serial.println("Switched to mode: " + modes[opModeIdx].description);
+    idlePeriods = 0; // Reset idle periods when switching modes
+}
+
 void loop() {
+    if (modeButton.isPressed()) {
+        switchToNextMode();
+        delay(300); // Debounce delay
+    }
+
     if (!sendingMessage) {
         if (displayActive) {
             displayData();
         } else {
             sendingMessage = true; // set semaphore
             displayIdle();
-            send_email_notif();
-            send_whatsapp_notif();
+            send_whatsapp_notif("Gyro says the machine has stopped");
         }
     }
     if (stopButton.isPressed()) {
